@@ -3,6 +3,8 @@
 
 import { useGameState } from '@/hooks/useGameState';
 import SetupScreen from '@/components/SetupScreen';
+import PlayerNamesScreen from '@/components/PlayerNamesScreen';
+import ReadyCheckScreen from '@/components/ReadyCheckScreen';
 import WordRevealScreen from '@/components/WordRevealScreen';
 import DiscussionScreen from '@/components/DiscussionScreen';
 import ImpostorGuessScreen from '@/components/ImpostorGuessScreen';
@@ -13,7 +15,9 @@ export default function Home() {
   const {
     gameState,
     setPlayerCount,
+    updatePlayerName,
     startGame,
+    confirmReady,
     markPlayerSeen,
     nextRound,
     impostorGuess,
@@ -31,8 +35,33 @@ export default function Home() {
       return (
         <SetupScreen
           playerCount={gameState.totalPlayers}
-          onPlayerCountChange={setPlayerCount}
+          onPlayerCountChange={(count) => {
+            setPlayerCount(count);
+          }}
+          onStart={() => {
+            // Ir para tela de nomes
+            setPlayerCount(gameState.totalPlayers);
+          }}
+        />
+      );
+
+    case 'player-names':
+      return (
+        <PlayerNamesScreen
+          players={gameState.players}
+          onUpdateName={updatePlayerName}
           onStart={startGame}
+          onBack={backToMenu}
+        />
+      );
+
+    case 'ready-check':
+      return (
+        <ReadyCheckScreen
+          currentPlayer={gameState.players[gameState.currentPlayerIndex]}
+          totalPlayers={gameState.totalPlayers}
+          currentPlayerIndex={gameState.currentPlayerIndex}
+          onReady={confirmReady}
         />
       );
 
@@ -42,6 +71,7 @@ export default function Home() {
           currentPlayer={gameState.players[gameState.currentPlayerIndex]}
           secretWord={gameState.secretWord}
           totalPlayers={gameState.totalPlayers}
+          currentPlayerIndex={gameState.currentPlayerIndex}
           onNext={markPlayerSeen}
         />
       );

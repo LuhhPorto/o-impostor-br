@@ -71,7 +71,7 @@ export default function SetupScreen({ playerCount, onPlayerCountChange, onStart 
               onClick={onStart}
               className="w-full h-16 text-display text-2xl bg-gradient-to-r from-accent to-secondary hover:from-accent/90 hover:to-secondary/90 text-accent-foreground shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 border-4 border-accent/30"
             >
-              Iniciar Jogo
+              Próximo
             </Button>
           </div>
         </Card>

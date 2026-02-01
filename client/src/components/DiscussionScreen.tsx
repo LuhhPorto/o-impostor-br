@@ -12,6 +12,7 @@ interface DiscussionScreenProps {
   onNextRound: () => void;
   onImpostorGuess: () => void;
   onVote: () => void;
+  players?: any[];
 }
 
 export default function DiscussionScreen({

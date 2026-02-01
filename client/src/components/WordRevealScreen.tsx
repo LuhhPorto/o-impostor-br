@@ -11,6 +11,7 @@ interface WordRevealScreenProps {
   currentPlayer: Player;
   secretWord: string;
   totalPlayers: number;
+  currentPlayerIndex: number;
   onNext: () => void;
 }
 
@@ -18,6 +19,7 @@ export default function WordRevealScreen({
   currentPlayer, 
   secretWord, 
   totalPlayers,
+  currentPlayerIndex,
   onNext 
 }: WordRevealScreenProps) {
   const [revealed, setRevealed] = useState(false);
@@ -29,16 +31,16 @@ export default function WordRevealScreen({
         <div className="mb-8">
           <div className="flex justify-between items-center mb-2">
             <span className="text-body text-sm font-semibold text-foreground/60">
-              Jogador {currentPlayer.id + 1} de {totalPlayers}
+              {currentPlayer.name}
             </span>
             <span className="text-body text-sm font-semibold text-foreground/60">
-              {Math.round(((currentPlayer.id + 1) / totalPlayers) * 100)}%
+              {Math.round(((currentPlayerIndex + 1) / totalPlayers) * 100)}%
             </span>
           </div>
           <div className="h-3 bg-border rounded-full overflow-hidden">
             <div 
               className="h-full bg-gradient-to-r from-primary via-accent to-secondary transition-all duration-500"
-              style={{ width: `${((currentPlayer.id + 1) / totalPlayers) * 100}%` }}
+              style={{ width: `${((currentPlayerIndex + 1) / totalPlayers) * 100}%` }}
             />
           </div>
         </div>
@@ -76,7 +78,7 @@ export default function WordRevealScreen({
                 className="w-full h-20 text-display text-2xl md:text-3xl bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-primary-foreground shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 border-4 border-primary/30"
               >
                 <Eye className="mr-3 h-8 w-8" />
-                Ver Palavra
+                Ver Informação
               </Button>
             ) : (
               <div className="reveal">

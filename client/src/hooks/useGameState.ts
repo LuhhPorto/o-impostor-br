@@ -16,52 +16,113 @@ export function useGameState() {
     currentRound: 1,
     totalRounds: 3,
     usedWords: [],
+    lastStartingPlayerIndex: -1,
+    playerOrder: [],
   });
 
   // Configurar número de jogadores
   const setPlayerCount = useCallback((count: number) => {
-    setGameState(prev => ({
-      ...prev,
-      totalPlayers: Math.max(3, Math.min(10, count)),
-    }));
-  }, []);
-
-  // Iniciar jogo
-  const startGame = useCallback(() => {
-    const players: Player[] = Array.from({ length: gameState.totalPlayers }, (_, i) => ({
+    const validCount = Math.max(3, Math.min(10, count));
+    const players: Player[] = Array.from({ length: validCount }, (_, i) => ({
       id: i,
       name: `Jogador ${i + 1}`,
       isImpostor: false,
       hasSeenWord: false,
+      confirmed: false,
     }));
-
-    // Sortear impostor
-    const impostorId = Math.floor(Math.random() * players.length);
-    players[impostorId].isImpostor = true;
-
-    // Sortear palavra (evitar repetição)
-    let availableWords = WORD_BANK.filter(w => !gameState.usedWords.includes(w));
-    if (availableWords.length === 0) {
-      availableWords = WORD_BANK; // Reset se todas foram usadas
-    }
-    const secretWord = availableWords[Math.floor(Math.random() * availableWords.length)];
 
     setGameState(prev => ({
       ...prev,
-      phase: 'word-reveal',
+      totalPlayers: validCount,
       players,
-      impostorId,
-      secretWord,
-      currentPlayerIndex: 0,
-      usedWords: [...prev.usedWords, secretWord],
+      phase: 'player-names',
     }));
-  }, [gameState.totalPlayers, gameState.usedWords]);
+  }, []);
 
-  // Marcar que jogador viu a palavra
+  // Atualizar nome de um jogador
+  const updatePlayerName = useCallback((playerId: number, name: string) => {
+    setGameState(prev => {
+      const newPlayers = [...prev.players];
+      if (newPlayers[playerId]) {
+        newPlayers[playerId].name = name.trim() || `Jogador ${playerId + 1}`;
+      }
+      return {
+        ...prev,
+        players: newPlayers,
+      };
+    });
+  }, []);
+
+  // Iniciar jogo (após nomes serem configurados)
+  const startGame = useCallback(() => {
+    setGameState(prev => {
+      // Gerar ordem aleatória para primeira partida ou rotativa
+      let playerOrder: number[];
+      let newLastStartingIndex: number;
+
+      if ((prev.lastStartingPlayerIndex ?? -1) === -1) {
+        // Primeira partida - ordem aleatória
+        playerOrder = Array.from({ length: prev.totalPlayers }, (_, i) => i);
+        playerOrder.sort(() => Math.random() - 0.5);
+        newLastStartingIndex = playerOrder[0];
+      } else {
+        // Partidas subsequentes - rotativa
+        const nextStartingIndex = ((prev.lastStartingPlayerIndex ?? 0) + 1) % prev.totalPlayers;
+        playerOrder = Array.from({ length: prev.totalPlayers }, (_, i) => 
+          (nextStartingIndex + i) % prev.totalPlayers
+        );
+        newLastStartingIndex = nextStartingIndex;
+    }
+
+    // Preservar nomes dos jogadores
+      const players: Player[] = prev.players.map(p => ({
+        ...p,
+        isImpostor: false,
+        hasSeenWord: false,
+        votedFor: undefined,
+        confirmed: false,
+      }));
+
+      // Sortear impostor
+      const impostorId = playerOrder[Math.floor(Math.random() * playerOrder.length)];
+      players[impostorId].isImpostor = true;
+
+      // Sortear palavra (evitar repetição)
+      let availableWords = WORD_BANK.filter(w => !prev.usedWords.includes(w));
+      if (availableWords.length === 0) {
+        availableWords = WORD_BANK; // Reset se todas foram usadas
+      }
+      const secretWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+
+      return {
+        ...prev,
+        phase: 'ready-check',
+        players,
+        impostorId,
+        secretWord,
+        currentPlayerIndex: 0,
+        currentRound: 1,
+        usedWords: [...prev.usedWords, secretWord],
+        lastStartingPlayerIndex: newLastStartingIndex,
+        playerOrder,
+      };
+    });
+  }, []);
+
+  // Confirmar prontidão do jogador
+  const confirmReady = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      phase: 'word-reveal',
+    }));
+  }, [gameState.currentPlayerIndex, gameState.players]);
+
+  // Marcar que jogador viu a palavra e voltar para ready-check
   const markPlayerSeen = useCallback(() => {
     setGameState(prev => {
       const newPlayers = [...prev.players];
       newPlayers[prev.currentPlayerIndex].hasSeenWord = true;
+      newPlayers[prev.currentPlayerIndex].confirmed = false; // Reset confirmação
 
       const nextIndex = prev.currentPlayerIndex + 1;
       
@@ -79,6 +140,7 @@ export function useGameState() {
         ...prev,
         players: newPlayers,
         currentPlayerIndex: nextIndex,
+        phase: 'ready-check',
       };
     });
   }, []);
@@ -172,11 +234,17 @@ export function useGameState() {
     });
   }, []);
 
-  // Reiniciar jogo
+  // Reiniciar jogo (nova partida)
   const resetGame = useCallback(() => {
     setGameState(prev => ({
-      phase: 'setup',
-      players: [],
+      phase: 'player-names',
+      players: prev.players.map(p => ({
+        ...p,
+        isImpostor: false,
+        hasSeenWord: false,
+        votedFor: undefined,
+        confirmed: false,
+      })),
       totalPlayers: prev.totalPlayers,
       secretWord: '',
       impostorId: -1,
@@ -184,6 +252,8 @@ export function useGameState() {
       currentRound: 1,
       totalRounds: 3,
       usedWords: prev.usedWords,
+      lastStartingPlayerIndex: prev.lastStartingPlayerIndex,
+      playerOrder: prev.playerOrder,
     }));
   }, []);
 
@@ -199,13 +269,17 @@ export function useGameState() {
       currentRound: 1,
       totalRounds: 3,
       usedWords: [],
+      lastStartingPlayerIndex: -1,
+      playerOrder: [],
     });
   }, []);
 
   return {
     gameState,
     setPlayerCount,
+    updatePlayerName,
     startGame,
+    confirmReady,
     markPlayerSeen,
     nextRound,
     impostorGuess,
