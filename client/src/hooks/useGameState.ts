@@ -20,9 +20,19 @@ export function useGameState() {
     playerOrder: [],
   });
 
-  // Configurar número de jogadores
+  // Apenas atualizar o número de jogadores (sem avançar de tela)
+  const updatePlayerCount = useCallback((count: number) => {
+    const validCount = Math.max(3, Math.min(10, count));
+    setGameState(prev => ({
+      ...prev,
+      totalPlayers: validCount,
+    }));
+  }, []);
+
+  // Configurar número de jogadores e avançar para tela de nomes
   const setPlayerCount = useCallback((count: number) => {
     const validCount = Math.max(3, Math.min(10, count));
+    
     const players: Player[] = Array.from({ length: validCount }, (_, i) => ({
       id: i,
       name: `Jogador ${i + 1}`,
@@ -72,9 +82,9 @@ export function useGameState() {
           (nextStartingIndex + i) % prev.totalPlayers
         );
         newLastStartingIndex = nextStartingIndex;
-    }
+      }
 
-    // Preservar nomes dos jogadores
+      // Preservar nomes dos jogadores
       const players: Player[] = prev.players.map(p => ({
         ...p,
         isImpostor: false,
@@ -234,27 +244,48 @@ export function useGameState() {
     });
   }, []);
 
-  // Reiniciar jogo (nova partida)
+  // Reiniciar jogo (nova partida) - mantém nomes e vai direto para próxima rodada
   const resetGame = useCallback(() => {
-    setGameState(prev => ({
-      phase: 'player-names',
-      players: prev.players.map(p => ({
+    setGameState(prev => {
+      // Calcular próximo índice inicial (rotativo)
+      const nextStartingIndex = ((prev.lastStartingPlayerIndex ?? 0) + 1) % prev.totalPlayers;
+      const playerOrder = Array.from({ length: prev.totalPlayers }, (_, i) => 
+        (nextStartingIndex + i) % prev.totalPlayers
+      );
+
+      // Resetar jogadores mantendo nomes
+      const players: Player[] = prev.players.map(p => ({
         ...p,
         isImpostor: false,
         hasSeenWord: false,
         votedFor: undefined,
         confirmed: false,
-      })),
-      totalPlayers: prev.totalPlayers,
-      secretWord: '',
-      impostorId: -1,
-      currentPlayerIndex: 0,
-      currentRound: 1,
-      totalRounds: 3,
-      usedWords: prev.usedWords,
-      lastStartingPlayerIndex: prev.lastStartingPlayerIndex,
-      playerOrder: prev.playerOrder,
-    }));
+      }));
+
+      // Sortear novo impostor
+      const impostorId = playerOrder[Math.floor(Math.random() * playerOrder.length)];
+      players[impostorId].isImpostor = true;
+
+      // Sortear nova palavra
+      let availableWords = WORD_BANK.filter(w => !prev.usedWords.includes(w));
+      if (availableWords.length === 0) {
+        availableWords = WORD_BANK;
+      }
+      const secretWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+
+      return {
+        ...prev,
+        phase: 'ready-check',
+        players,
+        impostorId,
+        secretWord,
+        currentPlayerIndex: 0,
+        currentRound: 1,
+        usedWords: [...prev.usedWords, secretWord],
+        lastStartingPlayerIndex: nextStartingIndex,
+        playerOrder,
+      };
+    });
   }, []);
 
   // Voltar ao menu
@@ -276,6 +307,7 @@ export function useGameState() {
 
   return {
     gameState,
+    updatePlayerCount,
     setPlayerCount,
     updatePlayerName,
     startGame,

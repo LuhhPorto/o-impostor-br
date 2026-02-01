@@ -14,6 +14,7 @@ import ResultsScreen from '@/components/ResultsScreen';
 export default function Home() {
   const {
     gameState,
+    updatePlayerCount,
     setPlayerCount,
     updatePlayerName,
     startGame,
@@ -35,11 +36,9 @@ export default function Home() {
       return (
         <SetupScreen
           playerCount={gameState.totalPlayers}
-          onPlayerCountChange={(count) => {
-            setPlayerCount(count);
-          }}
+          onPlayerCountChange={updatePlayerCount}
           onStart={() => {
-            // Ir para tela de nomes
+            // Ir para tela de nomes com o número atual de jogadores
             setPlayerCount(gameState.totalPlayers);
           }}
         />
