@@ -1,25 +1,98 @@
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+// Página principal do jogo O Impostor BR
+// Design: Tropicalismo Digital
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Best Practices, Design Guide and Common Pitfalls
- */
+import { useGameState } from '@/hooks/useGameState';
+import SetupScreen from '@/components/SetupScreen';
+import WordRevealScreen from '@/components/WordRevealScreen';
+import DiscussionScreen from '@/components/DiscussionScreen';
+import ImpostorGuessScreen from '@/components/ImpostorGuessScreen';
+import VotingScreen from '@/components/VotingScreen';
+import ResultsScreen from '@/components/ResultsScreen';
+
 export default function Home() {
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+  const {
+    gameState,
+    setPlayerCount,
+    startGame,
+    markPlayerSeen,
+    nextRound,
+    impostorGuess,
+    openImpostorGuess,
+    backToDiscussion,
+    vote,
+    finishVoting,
+    resetGame,
+    backToMenu,
+  } = useGameState();
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
-    </div>
-  );
+  // Renderizar tela baseada na fase do jogo
+  switch (gameState.phase) {
+    case 'setup':
+      return (
+        <SetupScreen
+          playerCount={gameState.totalPlayers}
+          onPlayerCountChange={setPlayerCount}
+          onStart={startGame}
+        />
+      );
+
+    case 'word-reveal':
+      return (
+        <WordRevealScreen
+          currentPlayer={gameState.players[gameState.currentPlayerIndex]}
+          secretWord={gameState.secretWord}
+          totalPlayers={gameState.totalPlayers}
+          onNext={markPlayerSeen}
+        />
+      );
+
+    case 'discussion':
+      return (
+        <DiscussionScreen
+          currentRound={gameState.currentRound}
+          totalRounds={gameState.totalRounds}
+          playerCount={gameState.players.length}
+          onNextRound={nextRound}
+          onImpostorGuess={openImpostorGuess}
+          onVote={() => {
+            if (gameState.currentRound >= gameState.totalRounds) {
+              nextRound();
+            }
+          }}
+        />
+      );
+
+    case 'impostor-guess':
+      return (
+        <ImpostorGuessScreen
+          onGuess={impostorGuess}
+          onBack={backToDiscussion}
+        />
+      );
+
+    case 'voting':
+      return (
+        <VotingScreen
+          players={gameState.players}
+          onVote={vote}
+          onFinish={finishVoting}
+        />
+      );
+
+    case 'results':
+      return (
+        <ResultsScreen
+          players={gameState.players}
+          secretWord={gameState.secretWord}
+          winner={gameState.winner || 'players'}
+          impostorGuess={gameState.impostorGuess}
+          votingResults={gameState.votingResults}
+          onPlayAgain={resetGame}
+          onBackToMenu={backToMenu}
+        />
+      );
+
+    default:
+      return null;
+  }
 }

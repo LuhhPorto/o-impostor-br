@@ -1,0 +1,219 @@
+// Hook para gerenciar o estado do jogo O Impostor BR
+// Design: Tropicalismo Digital
+
+import { useState, useCallback } from 'react';
+import { GameState, Player, GamePhase } from '@/types/game';
+import { WORD_BANK } from '@/data/words';
+
+export function useGameState() {
+  const [gameState, setGameState] = useState<GameState>({
+    phase: 'setup',
+    players: [],
+    totalPlayers: 3,
+    secretWord: '',
+    impostorId: -1,
+    currentPlayerIndex: 0,
+    currentRound: 1,
+    totalRounds: 3,
+    usedWords: [],
+  });
+
+  // Configurar número de jogadores
+  const setPlayerCount = useCallback((count: number) => {
+    setGameState(prev => ({
+      ...prev,
+      totalPlayers: Math.max(3, Math.min(10, count)),
+    }));
+  }, []);
+
+  // Iniciar jogo
+  const startGame = useCallback(() => {
+    const players: Player[] = Array.from({ length: gameState.totalPlayers }, (_, i) => ({
+      id: i,
+      name: `Jogador ${i + 1}`,
+      isImpostor: false,
+      hasSeenWord: false,
+    }));
+
+    // Sortear impostor
+    const impostorId = Math.floor(Math.random() * players.length);
+    players[impostorId].isImpostor = true;
+
+    // Sortear palavra (evitar repetição)
+    let availableWords = WORD_BANK.filter(w => !gameState.usedWords.includes(w));
+    if (availableWords.length === 0) {
+      availableWords = WORD_BANK; // Reset se todas foram usadas
+    }
+    const secretWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+
+    setGameState(prev => ({
+      ...prev,
+      phase: 'word-reveal',
+      players,
+      impostorId,
+      secretWord,
+      currentPlayerIndex: 0,
+      usedWords: [...prev.usedWords, secretWord],
+    }));
+  }, [gameState.totalPlayers, gameState.usedWords]);
+
+  // Marcar que jogador viu a palavra
+  const markPlayerSeen = useCallback(() => {
+    setGameState(prev => {
+      const newPlayers = [...prev.players];
+      newPlayers[prev.currentPlayerIndex].hasSeenWord = true;
+
+      const nextIndex = prev.currentPlayerIndex + 1;
+      
+      // Se todos viram, iniciar discussão
+      if (nextIndex >= prev.players.length) {
+        return {
+          ...prev,
+          players: newPlayers,
+          phase: 'discussion',
+          currentRound: 1,
+        };
+      }
+
+      return {
+        ...prev,
+        players: newPlayers,
+        currentPlayerIndex: nextIndex,
+      };
+    });
+  }, []);
+
+  // Avançar rodada de discussão
+  const nextRound = useCallback(() => {
+    setGameState(prev => {
+      if (prev.currentRound >= prev.totalRounds) {
+        return {
+          ...prev,
+          phase: 'voting',
+        };
+      }
+      return {
+        ...prev,
+        currentRound: prev.currentRound + 1,
+      };
+    });
+  }, []);
+
+  // Impostor tenta adivinhar
+  const impostorGuess = useCallback((guess: string) => {
+    const isCorrect = guess.trim().toLowerCase() === gameState.secretWord.toLowerCase();
+    
+    setGameState(prev => ({
+      ...prev,
+      impostorGuess: guess,
+      phase: 'results',
+      winner: isCorrect ? 'impostor' : undefined,
+    }));
+  }, [gameState.secretWord]);
+
+  // Abrir tela de palpite do impostor
+  const openImpostorGuess = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      phase: 'impostor-guess',
+    }));
+  }, []);
+
+  // Voltar para discussão
+  const backToDiscussion = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      phase: 'discussion',
+    }));
+  }, []);
+
+  // Registrar voto
+  const vote = useCallback((voterId: number, targetId: number) => {
+    setGameState(prev => {
+      const newPlayers = [...prev.players];
+      newPlayers[voterId].votedFor = targetId;
+      return {
+        ...prev,
+        players: newPlayers,
+      };
+    });
+  }, []);
+
+  // Finalizar votação
+  const finishVoting = useCallback(() => {
+    setGameState(prev => {
+      // Contar votos
+      const voteCounts = new Map<number, number>();
+      prev.players.forEach(player => {
+        if (player.votedFor !== undefined) {
+          voteCounts.set(player.votedFor, (voteCounts.get(player.votedFor) || 0) + 1);
+        }
+      });
+
+      // Encontrar mais votado
+      let maxVotes = 0;
+      let mostVoted = -1;
+      voteCounts.forEach((votes, playerId) => {
+        if (votes > maxVotes) {
+          maxVotes = votes;
+          mostVoted = playerId;
+        }
+      });
+
+      // Determinar vencedor
+      const winner = mostVoted === prev.impostorId ? 'players' : 'impostor';
+
+      return {
+        ...prev,
+        phase: 'results',
+        votingResults: voteCounts,
+        winner,
+      };
+    });
+  }, []);
+
+  // Reiniciar jogo
+  const resetGame = useCallback(() => {
+    setGameState(prev => ({
+      phase: 'setup',
+      players: [],
+      totalPlayers: prev.totalPlayers,
+      secretWord: '',
+      impostorId: -1,
+      currentPlayerIndex: 0,
+      currentRound: 1,
+      totalRounds: 3,
+      usedWords: prev.usedWords,
+    }));
+  }, []);
+
+  // Voltar ao menu
+  const backToMenu = useCallback(() => {
+    setGameState({
+      phase: 'setup',
+      players: [],
+      totalPlayers: 3,
+      secretWord: '',
+      impostorId: -1,
+      currentPlayerIndex: 0,
+      currentRound: 1,
+      totalRounds: 3,
+      usedWords: [],
+    });
+  }, []);
+
+  return {
+    gameState,
+    setPlayerCount,
+    startGame,
+    markPlayerSeen,
+    nextRound,
+    impostorGuess,
+    openImpostorGuess,
+    backToDiscussion,
+    vote,
+    finishVoting,
+    resetGame,
+    backToMenu,
+  };
+}
